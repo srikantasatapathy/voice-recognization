@@ -13,18 +13,38 @@ const statusStyles: Record<Word["status"], string> = {
   skipped: "text-orange-500 dark:text-orange-400 line-through decoration-orange-400/70 decoration-2",
 };
 
-export function WordToken({ word, isCurrent }: { word: Word; isCurrent: boolean }) {
+interface WordTokenProps {
+  word: Word;
+  isCurrent: boolean;
+  isPreviewHighlight?: boolean;
+}
+
+export function WordToken({ word, isCurrent, isPreviewHighlight = false }: WordTokenProps) {
+  const shouldShake = word.attempts > 0 && isCurrent && !isPreviewHighlight;
+
+  const animate = shouldShake
+    ? { x: [-4, 4, -3, 3, 0], scale: 1 }
+    : isPreviewHighlight
+    ? { scale: [1, 1.08, 1], x: 0 }
+    : { x: 0, scale: 1 };
+
   const shakeKey = `${word.id}-${word.attempts}`;
 
   return (
     <motion.span
-      key={shakeKey}
-      initial={word.attempts > 0 && isCurrent ? { x: -4 } : false}
-      animate={word.attempts > 0 && isCurrent ? { x: [-4, 4, -3, 3, 0] } : { x: 0 }}
-      transition={{ duration: 0.35 }}
+      key={shouldShake ? shakeKey : `w-${word.id}`}
+      animate={animate}
+      transition={{
+        duration: isPreviewHighlight ? 0.6 : 0.35,
+        repeat: isPreviewHighlight ? Infinity : 0,
+        repeatType: "reverse",
+        ease: "easeInOut",
+      }}
       className={cn(
         "inline-block rounded px-1 py-0.5 transition-colors duration-200",
-        statusStyles[word.status]
+        statusStyles[word.status],
+        isPreviewHighlight &&
+          "!bg-sky-100 !text-sky-900 !ring-2 !ring-sky-400/70 shadow-[0_0_20px_rgba(56,189,248,0.35)] dark:!bg-sky-900/50 dark:!text-sky-100 dark:!ring-sky-500/60"
       )}
     >
       {word.text}

@@ -3,7 +3,11 @@
 import { useSession } from "@/lib/session-store";
 import { WordToken } from "./word-token";
 
-export function ParagraphView() {
+interface ParagraphViewProps {
+  previewIndex?: number | null;
+}
+
+export function ParagraphView({ previewIndex = null }: ParagraphViewProps) {
   const words = useSession((s) => s.words);
   const currentIndex = useSession((s) => s.currentIndex);
 
@@ -18,7 +22,12 @@ export function ParagraphView() {
   return (
     <div className="flex flex-wrap gap-x-2 gap-y-2 font-serif text-2xl leading-relaxed sm:text-3xl sm:leading-[1.7]">
       {words.map((w, i) => (
-        <WordToken key={w.id} word={w} isCurrent={i === currentIndex} />
+        <WordToken
+          key={w.id}
+          word={w}
+          isCurrent={i === currentIndex}
+          isPreviewHighlight={previewIndex !== null && i === previewIndex}
+        />
       ))}
     </div>
   );

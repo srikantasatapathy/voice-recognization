@@ -49,6 +49,7 @@ export function ReadingScreen() {
   const {
     isSupported: ttsSupported,
     isPlaying,
+    activeWordIndex: previewIndex,
     play: playTts,
     stop: stopTts,
   } = useSpeechSynthesis({ rate: 0.9 });
@@ -137,7 +138,7 @@ export function ReadingScreen() {
         transition={{ duration: 0.4, delay: 0.05 }}
         className="rounded-2xl border border-border bg-card/80 p-6 shadow-sm backdrop-blur-sm sm:p-8"
       >
-        <ParagraphView />
+        <ParagraphView previewIndex={isPlaying ? previewIndex : null} />
       </motion.div>
 
       <div className="flex flex-col items-center gap-5 pt-2">
