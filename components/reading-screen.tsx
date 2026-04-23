@@ -7,9 +7,11 @@ import { useSession } from "@/lib/session-store";
 import { AGE_GROUPS, DIFFICULTIES } from "@/lib/types";
 import { isMatch } from "@/lib/match";
 import { useSpeechRecognition } from "@/hooks/use-speech-recognition";
+import { useSpeechSynthesis } from "@/hooks/use-speech-synthesis";
 import { ParagraphView } from "./paragraph-view";
 import { SessionStats } from "./session-stats";
 import { MicButton } from "./mic-button";
+import { PlayButton } from "./play-button";
 import { BrowserSupportBanner } from "./browser-support-banner";
 import { Button } from "@/components/ui/button";
 
@@ -36,17 +38,47 @@ export function ReadingScreen() {
     }
   }, []);
 
-  const { isSupported, isListening, error, start, stop } = useSpeechRecognition({
-    onWordHeard: handleWordHeard,
-  });
+  const {
+    isSupported: micSupported,
+    isListening,
+    error: micError,
+    start: startMic,
+    stop: stopMic,
+  } = useSpeechRecognition({ onWordHeard: handleWordHeard });
+
+  const {
+    isSupported: ttsSupported,
+    isPlaying,
+    play: playTts,
+    stop: stopTts,
+  } = useSpeechSynthesis({ rate: 0.9 });
+
+  const togglePlay = () => {
+    if (!paragraph) return;
+    if (isPlaying) {
+      stopTts();
+    } else {
+      if (isListening) stopMic();
+      playTts(paragraph.text);
+    }
+  };
 
   const toggleMic = () => {
-    if (isListening) stop();
-    else start();
+    if (isListening) {
+      stopMic();
+    } else {
+      if (isPlaying) stopTts();
+      startMic();
+    }
+  };
+
+  const stopEverything = () => {
+    stopTts();
+    stopMic();
   };
 
   const showPermissionBanner =
-    error === "not-allowed" || error === "service-not-allowed";
+    micError === "not-allowed" || micError === "service-not-allowed";
 
   if (!paragraph) return null;
 
@@ -57,7 +89,7 @@ export function ReadingScreen() {
           variant="ghost"
           size="sm"
           onClick={() => {
-            stop();
+            stopEverything();
             backToSetup();
           }}
           className="gap-1 text-muted-foreground"
@@ -93,8 +125,8 @@ export function ReadingScreen() {
         </h1>
       </motion.header>
 
-      {(!isSupported || showPermissionBanner) && (
-        <BrowserSupportBanner error={error} />
+      {(!micSupported || showPermissionBanner) && (
+        <BrowserSupportBanner error={micError} />
       )}
 
       <SessionStats />
@@ -108,25 +140,47 @@ export function ReadingScreen() {
         <ParagraphView />
       </motion.div>
 
-      <div className="flex flex-col items-center gap-4 pt-2">
-        <MicButton
-          isListening={isListening}
-          disabled={!isSupported}
-          onToggle={toggleMic}
-        />
+      <div className="flex flex-col items-center gap-5 pt-2">
+        <div className="flex items-end gap-8 sm:gap-10">
+          <PlayButton
+            isPlaying={isPlaying}
+            disabled={!ttsSupported || isListening}
+            onToggle={togglePlay}
+          />
+          <MicButton
+            isListening={isListening}
+            disabled={!micSupported || isPlaying}
+            onToggle={toggleMic}
+          />
+        </div>
+
         <div className="flex flex-wrap items-center justify-center gap-2">
-          <Button onClick={skip} variant="outline" size="sm" className="gap-1">
+          <Button
+            onClick={skip}
+            variant="outline"
+            size="sm"
+            className="gap-1"
+            disabled={isPlaying}
+          >
             <ChevronRight className="h-4 w-4" />
             Skip word
           </Button>
-          <Button onClick={restartSame} variant="ghost" size="sm" className="gap-1">
+          <Button
+            onClick={() => {
+              stopEverything();
+              restartSame();
+            }}
+            variant="ghost"
+            size="sm"
+            className="gap-1"
+          >
             <RotateCcw className="h-4 w-4" />
             Restart
           </Button>
         </div>
         <p className="max-w-md text-center text-xs text-muted-foreground">
-          Tap the mic and start reading the paragraph aloud. Words turn green when
-          recognized. If stuck on a word after 3 tries, tap <em>Skip word</em>.
+          Tap <em>Listen</em> to hear the paragraph first, then tap the mic and read
+          it aloud. Words turn green when recognized.
         </p>
       </div>
     </div>
