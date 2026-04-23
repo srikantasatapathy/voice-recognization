@@ -1,12 +1,16 @@
 "use client";
 
+import { useCallback } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ChevronRight, RotateCcw } from "lucide-react";
 import { useSession } from "@/lib/session-store";
 import { AGE_GROUPS, DIFFICULTIES } from "@/lib/types";
+import { isMatch } from "@/lib/match";
+import { useSpeechRecognition } from "@/hooks/use-speech-recognition";
 import { ParagraphView } from "./paragraph-view";
 import { SessionStats } from "./session-stats";
-import { SessionControls } from "./session-controls";
+import { MicButton } from "./mic-button";
+import { BrowserSupportBanner } from "./browser-support-banner";
 import { Button } from "@/components/ui/button";
 
 export function ReadingScreen() {
@@ -14,9 +18,35 @@ export function ReadingScreen() {
   const selectedGroup = useSession((s) => s.selectedGroup);
   const selectedLevel = useSession((s) => s.selectedLevel);
   const backToSetup = useSession((s) => s.backToSetup);
+  const restartSame = useSession((s) => s.restartSame);
+  const skip = useSession((s) => s.skip);
 
   const group = AGE_GROUPS.find((g) => g.id === selectedGroup);
   const level = DIFFICULTIES.find((d) => d.id === selectedLevel);
+
+  const handleWordHeard = useCallback((spoken: string) => {
+    const state = useSession.getState();
+    if (state.status === "completed") return;
+    const current = state.words[state.currentIndex];
+    if (!current) return;
+    if (isMatch(spoken, current.normalized)) {
+      state.markCorrect();
+    } else {
+      state.markWrong();
+    }
+  }, []);
+
+  const { isSupported, isListening, error, start, stop } = useSpeechRecognition({
+    onWordHeard: handleWordHeard,
+  });
+
+  const toggleMic = () => {
+    if (isListening) stop();
+    else start();
+  };
+
+  const showPermissionBanner =
+    error === "not-allowed" || error === "service-not-allowed";
 
   if (!paragraph) return null;
 
@@ -26,7 +56,10 @@ export function ReadingScreen() {
         <Button
           variant="ghost"
           size="sm"
-          onClick={backToSetup}
+          onClick={() => {
+            stop();
+            backToSetup();
+          }}
           className="gap-1 text-muted-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -60,6 +93,10 @@ export function ReadingScreen() {
         </h1>
       </motion.header>
 
+      {(!isSupported || showPermissionBanner) && (
+        <BrowserSupportBanner error={error} />
+      )}
+
       <SessionStats />
 
       <motion.div
@@ -71,11 +108,27 @@ export function ReadingScreen() {
         <ParagraphView />
       </motion.div>
 
-      <SessionControls />
-
-      <p className="text-center text-xs text-muted-foreground">
-        Voice input coming next — for now, use the debug buttons above.
-      </p>
+      <div className="flex flex-col items-center gap-4 pt-2">
+        <MicButton
+          isListening={isListening}
+          disabled={!isSupported}
+          onToggle={toggleMic}
+        />
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <Button onClick={skip} variant="outline" size="sm" className="gap-1">
+            <ChevronRight className="h-4 w-4" />
+            Skip word
+          </Button>
+          <Button onClick={restartSame} variant="ghost" size="sm" className="gap-1">
+            <RotateCcw className="h-4 w-4" />
+            Restart
+          </Button>
+        </div>
+        <p className="max-w-md text-center text-xs text-muted-foreground">
+          Tap the mic and start reading the paragraph aloud. Words turn green when
+          recognized. If stuck on a word after 3 tries, tap <em>Skip word</em>.
+        </p>
+      </div>
     </div>
   );
 }
